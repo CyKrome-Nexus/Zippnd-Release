@@ -465,14 +465,15 @@ footer{border-top:1px solid var(--line); padding:36px 0; color:var(--mut2); font
     <span class="eyebrow">Get it</span>
     <h2 style="margin-top:14px">Download Zippnd</h2>
     <p>Run one command in your terminal to install Zippnd on macOS or Linux,
-       or download the Windows installer directly from the latest release.</p>
+       or download the Windows installer or the Android app directly from the latest release.</p>
 
-    <p class="phone-note" id="phone-note">These are the desktop builds. Zippnd for iPhone and Android isn’t in stores yet — open this page on your computer to install it there.</p>
+    <p class="phone-note" id="phone-note">Zippnd for iPhone isn’t available yet. Open this page on your computer or an Android phone to install it there.</p>
 
     <div class="install-tabs" role="tablist" aria-label="Download platform">
       <button type="button" class="tab-btn active" data-tab="mac" role="tab" aria-selected="true">macOS</button>
       <button type="button" class="tab-btn" data-tab="linux" role="tab" aria-selected="false">Linux</button>
       <button type="button" class="tab-btn" data-tab="win" role="tab" aria-selected="false">Windows</button>
+      <button type="button" class="tab-btn" data-tab="android" role="tab" aria-selected="false">Android</button>
       <button type="button" class="tab-btn" data-tab="all" role="tab" aria-selected="false">All Downloads</button>
     </div>
 
@@ -522,6 +523,18 @@ footer{border-top:1px solid var(--line); padding:36px 0; color:var(--mut2); font
       </div>
     </div>
 
+    <div class="tab-panel" id="panel-android" role="tabpanel">
+      <div class="dl-actions">
+        <a class="btn primary big" data-dl="android" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest" download>Download for Android</a>
+      </div>
+      <div class="install-perks">
+        <span class="install-perk"><span class="tick">✓</span> Android 7 or later, 64-bit</span>
+        <span class="install-perk"><span class="tick">✓</span> Phone to phone without Wi-Fi (Wi-Fi Direct)</span>
+        <span class="install-perk"><span class="tick">✓</span> Signed by CyKrome</span>
+      </div>
+      <p class="install-note">Open the downloaded <code>.apk</code> to install it. The first time, Android asks you to allow installing apps from your browser — allow it once, then come back and tap <b>Install</b>. A newer APK installs over this one and keeps your devices and history.</p>
+    </div>
+
     <div class="tab-panel" id="panel-all" role="tabpanel">
       <div class="plats">
         <a data-dl="install" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest/download/install.sh" download><b>Universal Installer</b><i>install.sh</i></a>
@@ -529,6 +542,7 @@ footer{border-top:1px solid var(--line); padding:36px 0; color:var(--mut2); font
         <a data-dl="install-linux" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest/download/install-linux.sh" download><b>Linux Installer</b><i>install-linux.sh</i></a>
         <a data-dl="win" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest" download><b>Windows</b><i>.exe installer</i></a>
         <a data-dl="win-msi" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest" download><b>Windows Package</b><i>.msi</i></a>
+        <a data-dl="android" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest" download><b>Android</b><i>.apk</i></a>
       </div>
       <p class="install-note">
         Universal auto-detect install script:
@@ -537,7 +551,7 @@ footer{border-top:1px solid var(--line); padding:36px 0; color:var(--mut2); font
         <a href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest">View the full release on GitHub</a> for the .dmg, .deb and .rpm.
       </p>
     </div>
-    <p class="dl-meta" id="dl-meta"><span class="app-version">v0.1.0</span> · macOS, Windows and Linux builds</p>
+    <p class="dl-meta" id="dl-meta"><span class="app-version">v0.1.0</span> · macOS, Windows, Linux and Android builds</p>
     <p class="fineprint">
       Updates are verified by the installed app before they apply. macOS builds are not notarised yet, so the terminal installer is the preferred path.
     </p>
@@ -605,11 +619,13 @@ const ASSETS = {
   "linux": [/\.AppImage$/, "Linux"],
   "deb": [/\.deb$/, "Linux (.deb)"],
   "rpm": [/\.rpm$/, "Linux (.rpm)"],
+  "android": [/\.apk$/, "Android"],
 };
 
 function detectPlatform() {
   const ua = navigator.userAgent;
-  if (/Android|iPhone|iPod/.test(ua)) return "phone";     // no phone build here yet
+  if (/Android/.test(ua)) return "android";
+  if (/iPhone|iPod/.test(ua)) return "phone";              // no iPhone build here yet
   if (/Windows|Win64|WOW64/.test(ua)) return "win";
   if (/Mac|iPad/.test(ua)) return navigator.maxTouchPoints > 1 ? "phone" : isAppleSilicon() ? "mac-arm" : "mac-x64";
   if (/Linux|X11/.test(ua)) return "linux";
@@ -677,13 +693,14 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
   else if (here && here.startsWith("mac")) selectTab("mac");
   else if (here === "linux") selectTab("linux");
   else if (here === "win") selectTab("win");
+  else if (here === "android") selectTab("android");
 
   const apply = (rel) => {
     if (rel && rel.ver) {
       syncVersion(rel.ver);
     }
     const pick = (key) => rel.files.find((f) => ASSETS[key][0].test(f.name));
-    const primaryKey = here && here.startsWith("mac") ? "install-mac" : here === "linux" ? "install-linux" : here === "win" ? "win" : null;
+    const primaryKey = here && here.startsWith("mac") ? "install-mac" : here === "linux" ? "install-linux" : here === "win" ? "win" : here === "android" ? "android" : null;
     for (const el of document.querySelectorAll("[data-dl]")) {
       const f = pick(el.dataset.dl);
       if (!f) continue;
@@ -699,7 +716,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
       if (label && primaryKey === "win") label.textContent = `Download for ${ASSETS.win[1]}`;
       meta.innerHTML = `<span class="app-version">${verDisplay}</span> · ${mine.name} · ${mb(mine.size)}`;
     } else {
-      meta.innerHTML = `<span class="app-version">${verDisplay}</span> · macOS, Windows and Linux builds`;
+      meta.innerHTML = `<span class="app-version">${verDisplay}</span> · macOS, Windows, Linux and Android builds`;
     }
   };
 
