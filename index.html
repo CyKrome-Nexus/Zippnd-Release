@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zippnd — send anything to any device nearby</title>
+<meta name="description" content="Zippnd is AirDrop for every platform. Send files from Mac to Windows, Linux to Android, iPhone to PC — peer-to-peer over your local network, end-to-end encrypted, no account needed.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:title" content="Zippnd — send anything to any device nearby">
+<meta property="og:description" content="AirDrop for every platform. Peer-to-peer, end-to-end encrypted, no account needed.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* ── Zippnd tokens, from packages/tokens: monochrome, Geist, one curve, cyan "ND" ── */
+:root{
+  --desk:#000; --bg:#0a0a0a; --surf:#0f0f0f; --surf0:#0d0d0d; --surf2:#0e0e0e; --surf3:#141414; --code:#0c0c0c;
+  --tx:#fff; --n300:#d4d4d4; --n600:#8a8a8a; --n700:#6b6b6b; --n800:#2e2e2e;
+  --grid:#161616;
+  --cyan:#22D3EE; --cyan2:#67e8f9; --cyan-deep:#0891B2; --cyan-ink:#06222a;
+  --ok:#4ade80; --warn:#f59e0b;
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:Geist,system-ui,-apple-system,sans-serif;
+  --mut:color-mix(in srgb,var(--tx) 60%,transparent);
+  --mut2:color-mix(in srgb,var(--tx) 42%,transparent);
+  --line:color-mix(in srgb,var(--tx) 11%,transparent);
+  --shadow:0 0 0 1px var(--n800),0 40px 90px rgba(0,0,0,.7);
+  --wrap:1160px;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--desk); color:var(--tx);
+  font:400 16px/1.6 var(--sans); -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+h1,h2,h3{line-height:1.08; letter-spacing:-.04em; margin:0; font-weight:600}
+p{margin:0}
+a{color:inherit}
+code,kbd{font-family:var(--mono)}
+.wrap{max-width:var(--wrap); margin:0 auto; padding-inline:24px}
+@media(max-width:520px){.wrap{padding-inline:16px}}
+.eyebrow{
+  font:500 12px/1 var(--mono); letter-spacing:.16em; text-transform:uppercase;
+  color:var(--cyan); opacity:.9;
+}
+.nd{color:var(--cyan)}
+.wordmark{font-weight:600; letter-spacing:-.045em}
+
+/* ── Background: a slow sonar, the Pulse idea ─────────────────────────────── */
+.sonar{position:fixed; left:50%; top:-28vh; width:0; height:0; z-index:-2; pointer-events:none}
+.sonar i{position:absolute; left:50%; top:50%; width:140vmax; height:140vmax; margin:-70vmax 0 0 -70vmax;
+  border-radius:50%; border:1px solid color-mix(in srgb,var(--cyan) 22%,transparent);
+  transform:scale(.05); opacity:0; animation:sonar 12s cubic-bezier(.2,.6,.2,1) infinite}
+.sonar i:nth-child(2){animation-delay:4s}.sonar i:nth-child(3){animation-delay:8s}
+@keyframes sonar{0%{transform:scale(.05);opacity:0}12%{opacity:.9}100%{transform:scale(1);opacity:0}}
+.glow{position:fixed; left:50%; top:-30vh; width:90vw; height:70vh; transform:translateX(-50%); z-index:-2; pointer-events:none;
+  background:radial-gradient(closest-side,color-mix(in srgb,var(--cyan) 13%,transparent),transparent); filter:blur(30px)}
+.mesh{
+  position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:
+    linear-gradient(var(--grid) 1px,transparent 1px) 0 0/64px 64px,
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/64px 64px;
+  opacity:.5;
+  mask-image:radial-gradient(ellipse 90% 60% at 50% 0%,#000 20%,transparent 78%);
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+header{
+  position:sticky; top:0; z-index:50;
+  backdrop-filter:blur(14px) saturate(1.4);
+  background:color-mix(in srgb,var(--desk) 70%,transparent);
+  border-bottom:1px solid transparent; transition:border-color .3s,background .3s;
+}
+header.stuck{border-bottom-color:var(--line); background:color-mix(in srgb,var(--desk) 88%,transparent)}
+.bar{display:flex; align-items:center; gap:28px; height:62px}
+.brand{display:flex; align-items:center; gap:10px; font-size:19px; text-decoration:none}
+.brand svg{transition:transform .6s var(--ease)}
+.brand:hover svg{transform:scale(1.12)}
+nav{display:flex; gap:24px; margin-left:auto; font-size:14px}
+nav a{color:var(--mut); text-decoration:none; transition:color .2s}
+nav a:hover{color:var(--tx)}
+@media(max-width:820px){nav{display:none}.bar .btn{margin-left:auto}}
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+.btn{
+  display:inline-flex; align-items:center; gap:8px; text-decoration:none;
+  padding:11px 20px; border-radius:12px; font:500 14px/1 var(--sans);
+  border:1px solid var(--line); color:var(--tx); background:color-mix(in srgb,var(--surf) 70%,transparent);
+  transition:transform .18s var(--ease),background .2s,border-color .2s,box-shadow .2s;
+  white-space:nowrap;
+}
+.btn:hover{transform:translateY(-2px); border-color:color-mix(in srgb,var(--tx) 40%,transparent); background:var(--surf3)}
+.btn:active{transform:translateY(0) scale(.98)}
+.btn.primary{background:#fff; color:#0a0a0a; border-color:transparent; font-weight:600;
+  box-shadow:0 8px 28px color-mix(in srgb,var(--cyan) 22%,transparent)}
+.btn.primary:hover{box-shadow:0 14px 38px color-mix(in srgb,var(--cyan) 38%,transparent); background:#fff}
+.btn.sm{padding:8px 14px; font-size:13px}
+
+/* ── Hero ──────────────────────────────────────────────────────────────── */
+.hero{padding-block:100px 72px; text-align:center}
+.hero h1{font-size:clamp(40px,7.4vw,80px); font-weight:600; margin:22px 0 0}
+.hero h1 em{font-style:normal; color:var(--cyan)}
+.hero .lede{max-width:640px; margin:22px auto 0; color:var(--mut); font-size:clamp(16px,2.1vw,19px)}
+.cta{display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:34px}
+.plat{margin-top:14px; font:400 13px/1 var(--sans); color:var(--mut2)}
+.badge{
+  display:inline-flex; align-items:center; gap:9px; padding:6px 14px 6px 8px; border-radius:999px;
+  border:1px solid var(--line); background:color-mix(in srgb,var(--surf) 60%,transparent);
+  font-size:13px; color:var(--mut);
+}
+.badge b{color:var(--cyan); font-weight:600; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+  background:var(--cyan-ink); padding:4px 8px; border-radius:999px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 0 0 var(--cyan);animation:pulse 2.4s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+
+/* ── The app window mock: Nearby ───────────────────────────────────────── */
+.stage{margin:72px auto 0; max-width:1020px; perspective:1600px}
+.win{
+  border-radius:14px; overflow:hidden; background:var(--bg); box-shadow:var(--shadow);
+  transform:rotateX(9deg) scale(.97); transform-origin:50% 0;
+  animation:settle 1.4s .15s cubic-bezier(.16,1,.3,1) both;
+  font-size:12.5px; text-align:left;
+}
+@keyframes settle{from{opacity:0;transform:rotateX(18deg) translateY(46px) scale(.93)}to{opacity:1;transform:rotateX(9deg) scale(.97)}}
+.titlebar{display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--surf0); border-bottom:1px solid var(--line)}
+.tl{display:flex;gap:6px}.tl i{width:11px;height:11px;border-radius:50%;display:block}
+.tl i:nth-child(1){background:#ec6a5f}.tl i:nth-child(2){background:#f4bf4f}.tl i:nth-child(3){background:#61c554}
+.titlebar span{margin:0 auto; color:var(--mut2); font-size:12px; display:flex; align-items:center; gap:6px}
+.body{display:grid; grid-template-columns:184px 1fr; min-height:400px}
+.side{background:var(--surf2); border-right:1px solid var(--line); padding:14px 10px; display:flex; flex-direction:column; gap:3px}
+.side .it{padding:8px 10px; border-radius:9px; color:var(--mut)}
+.side .it.on{background:#fff; color:#0a0a0a; font-weight:500}
+.side .me{margin-top:auto; font:400 10px/1.6 var(--mono); color:var(--mut2); text-transform:uppercase; padding:0 10px}
+.main{padding:16px 18px; display:flex; flex-direction:column; gap:12px; min-width:0}
+.h{font-size:20px; font-weight:600; letter-spacing:-.03em}
+.sub{color:var(--mut2); font-size:12px; margin-top:-8px}
+.radar{position:relative; flex:1; min-height:240px; display:grid; place-items:center; overflow:hidden}
+.radar .ring{position:absolute; width:300px; height:300px; border-radius:50%; border:1px solid color-mix(in srgb,var(--cyan) 45%,transparent);
+  transform:scale(.15); opacity:0; animation:ring 3.6s cubic-bezier(.2,.6,.2,1) infinite}
+.radar .ring:nth-child(2){animation-delay:1.2s}.radar .ring:nth-child(3){animation-delay:2.4s}
+@keyframes ring{0%{transform:scale(.15);opacity:0}15%{opacity:.8}100%{transform:scale(1.2);opacity:0}}
+.me-dot{width:54px; height:54px; border-radius:16px; background:#fff; display:grid; place-items:center; position:relative; z-index:1;
+  box-shadow:0 0 0 6px color-mix(in srgb,var(--cyan) 14%,transparent)}
+.peer{position:absolute; display:flex; flex-direction:column; align-items:center; gap:6px; color:var(--n300); font-size:11.5px;
+  opacity:0; animation:peer .6s var(--ease) forwards}
+.peer b{width:40px; height:40px; border-radius:50%; background:var(--surf3); border:1px solid var(--n800); display:grid; place-items:center;
+  font:500 10px var(--mono); color:var(--mut)}
+.peer.hot b{border-color:var(--cyan); color:var(--cyan); background:var(--cyan-ink)}
+.peer i{font-style:normal; color:var(--mut2); font-size:10px; font-family:var(--mono)}
+@keyframes peer{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+.xfer{border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:var(--surf0); display:flex; flex-direction:column; gap:8px}
+.xfer .row{display:flex; justify-content:space-between; gap:10px; font-size:12px}
+.xfer .row span:last-child{font-family:var(--mono); color:var(--mut2); font-size:11px}
+.meter{height:4px; border-radius:2px; background:var(--n800); overflow:hidden}
+.meter div{height:100%; width:0; background:var(--cyan); border-radius:2px; animation:fill 7s 1s var(--ease) infinite}
+@keyframes fill{0%{width:4%}80%,100%{width:100%}}
+@media(max-width:720px){.body{grid-template-columns:1fr}.side{display:none}.win{transform:none;animation:none}.stage{perspective:none}}
+
+/* ── Marquee ───────────────────────────────────────────────────────────── */
+.strip{margin-top:80px; border-block:1px solid var(--line); padding:18px 0; overflow:hidden;
+  mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.track{display:flex; gap:56px; width:max-content; animation:slide 34s linear infinite}
+.track span{font:500 13px var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--mut2); white-space:nowrap}
+@keyframes slide{to{transform:translateX(-50%)}}
+
+/* ── Sections ──────────────────────────────────────────────────────────── */
+section{padding-block:96px}
+.head{max-width:660px; margin-bottom:48px}
+.head h2{font-size:clamp(28px,4.4vw,44px); margin:14px 0 0}
+.head p{color:var(--mut); margin-top:14px; font-size:17px}
+
+.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(268px,1fr)); gap:18px}
+.card{
+  position:relative; padding:26px 24px; border-radius:18px; border:1px solid var(--line);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--surf3) 80%,transparent),color-mix(in srgb,var(--surf0) 80%,transparent));
+  overflow:hidden; transition:transform .3s var(--ease),border-color .3s;
+}
+.card:hover{transform:translateY(-4px); border-color:color-mix(in srgb,var(--cyan) 40%,transparent)}
+.card::before{
+  content:""; position:absolute; inset:0; opacity:0; transition:opacity .3s;
+  background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),color-mix(in srgb,var(--cyan) 12%,transparent),transparent 70%);
+}
+.card:hover::before{opacity:1}
+.card h3{font-size:17px; letter-spacing:-.02em; margin-bottom:9px; display:flex; align-items:center; gap:10px}
+.card p{color:var(--mut); font-size:14.5px}
+.ico{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;
+  background:var(--cyan-ink); color:var(--cyan); font:600 14px var(--mono)}
+
+.split{display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:center}
+@media(max-width:880px){.split{grid-template-columns:1fr; gap:36px}}
+.flow{
+  border-radius:18px; border:1px solid var(--line); background:var(--surf0); padding:26px;
+  font:400 12.5px/1.9 var(--mono);
+}
+.flow .row{display:flex; align-items:center; gap:12px; padding:9px 0}
+.flow .node{padding:7px 12px; border-radius:9px; border:1px solid var(--line); background:var(--surf3); color:var(--n300); white-space:nowrap}
+.flow .node.hot{border-color:var(--cyan-deep); color:var(--cyan); background:var(--cyan-ink)}
+.flow .wire{flex:1; min-width:24px; height:2px; border-radius:2px; background:var(--n800); position:relative; overflow:hidden}
+.flow .wire::after{content:""; position:absolute; inset:0; width:38%;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent); animation:pkt 2.4s linear infinite}
+.flow .wire.back::after{animation:pkt-back 2.4s 1.2s linear infinite}
+@keyframes pkt{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
+@keyframes pkt-back{from{transform:translateX(300%)}to{transform:translateX(-100%)}}
+.flow .note{color:var(--mut2); font-size:11.5px; padding-top:12px; border-top:1px solid var(--line); margin-top:14px}
+.bullets{list-style:none; padding:0; margin:26px 0 0; display:grid; gap:14px}
+.bullets li{display:flex; gap:12px; color:var(--mut); font-size:15px}
+.bullets b{color:var(--tx); font-weight:600}
+.tick{color:var(--cyan); flex:none}
+
+/* plans */
+.plans{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1px; background:var(--line);
+  border:1px solid var(--line); border-radius:18px; overflow:hidden}
+.plan{background:var(--surf0); padding:28px 24px; display:flex; flex-direction:column; gap:10px}
+.plan .tag{font:500 11px var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--mut2)}
+.plan b{font-size:26px; letter-spacing:-.04em; font-weight:600}
+.plan.hot b{color:var(--cyan)}
+.plan ul{list-style:none; padding:0; margin:6px 0 0; display:grid; gap:8px; color:var(--mut); font-size:14px}
+.plan li::before{content:"— "; color:var(--n700)}
+.plans-note{margin-top:18px; color:var(--mut2); font-size:13.5px}
+.plans-note a{color:var(--mut); text-underline-offset:3px; text-decoration-color:var(--n800)}
+.plans-note a:hover{color:var(--cyan)}
+
+/* honest list */
+.honest{display:flex; flex-wrap:wrap; gap:10px; margin-top:26px}
+.honest span{font:400 13px var(--mono); color:var(--mut2); border:1px dashed var(--n800);
+  padding:7px 12px; border-radius:9px}
+
+/* download */
+.dl{
+  border-radius:22px; border:1px solid var(--line); padding:52px 40px; text-align:center; position:relative; overflow:hidden;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--surf3) 90%,transparent),color-mix(in srgb,var(--surf0) 95%,transparent));
+}
+@media(max-width:520px){.dl{padding:40px 18px}}
+.dl::before{content:""; position:absolute; inset:-60% -10% auto; height:180%; pointer-events:none;
+  background:radial-gradient(closest-side,color-mix(in srgb,var(--cyan) 12%,transparent),transparent)}
+.dl h2{font-size:clamp(26px,4vw,40px); position:relative}
+.dl p{color:var(--mut); margin-top:14px; position:relative}
+.plats{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-top:14px; position:relative}
+.plats a{
+  display:flex; flex-direction:column; gap:5px; text-decoration:none; padding:18px; border-radius:14px;
+  border:1px solid var(--line); background:color-mix(in srgb,var(--surf) 60%,transparent);
+  transition:transform .2s var(--ease),border-color .2s;
+}
+.plats a:hover{transform:translateY(-3px); border-color:var(--cyan-deep)}
+.plats b{font-size:14.5px}
+.plats i{font-style:normal; font:400 11.5px var(--mono); color:var(--mut2); overflow-wrap:anywhere}
+.fineprint{margin-top:26px; font-size:13px; color:var(--mut2); position:relative}
+.btn.big{padding:15px 30px; font-size:15.5px; border-radius:14px}
+.dl-meta{margin-top:14px; font:400 13px var(--mono); color:var(--mut2); position:relative; overflow-wrap:anywhere}
+.term{
+  margin:30px auto 0; max-width:780px; position:relative; text-align:left;
+  border:1px solid var(--line); border-radius:14px; overflow:hidden; background:var(--code);
+  box-shadow:0 18px 42px rgba(0,0,0,.4);
+}
+.termbar{display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line); background:var(--surf0)}
+.termbar i{width:10px; height:10px; border-radius:50%; display:block}
+.termbar i:nth-child(1){background:#ec6a5f}.termbar i:nth-child(2){background:#f4bf4f}.termbar i:nth-child(3){background:#61c554}
+.termbar span{color:var(--mut2); font:400 12px var(--mono)}
+.copy{margin-left:auto; border:1px solid var(--line); background:var(--surf3); color:var(--mut); border-radius:8px; padding:6px 10px; cursor:pointer;
+  font:500 12px var(--sans); transition:background .2s,color .2s,border-color .2s}
+.copy:hover{color:var(--tx)}
+.copy.ok{background:var(--cyan-ink); color:var(--cyan); border-color:var(--cyan-deep)}
+.cmdline{display:block; padding:18px 20px; overflow-x:auto; white-space:pre; font:400 13px/1.8 var(--mono); color:var(--n300)}
+.cmdline .sh{color:var(--ok)}.cmdline .u{color:var(--cyan2)}.cmdline .op{color:var(--warn)}
+.install-tabs{display:inline-flex; gap:6px; margin-top:28px; padding:5px; border-radius:14px; border:1px solid var(--line);
+  background:color-mix(in srgb,var(--surf0) 90%,transparent); position:relative; flex-wrap:wrap}
+.tab-btn{border:1px solid transparent; border-radius:10px; background:transparent; color:var(--mut); padding:9px 16px;
+  font:500 13px/1 var(--sans); cursor:pointer; transition:background .18s,border-color .18s,color .18s}
+.tab-btn:hover{background:color-mix(in srgb,var(--surf3) 80%,transparent); color:var(--tx)}
+.tab-btn.active{background:#fff; color:#0a0a0a}
+.tab-panel{display:none; margin-top:22px; position:relative}
+.tab-panel.active{display:block}
+.dl-actions{display:flex; justify-content:center; gap:12px; flex-wrap:wrap; margin-top:22px}
+.install-perks{display:flex; justify-content:center; flex-wrap:wrap; gap:10px 22px; margin-top:16px}
+.install-perk{display:inline-flex; align-items:center; gap:7px; color:var(--mut); font-size:13.5px}
+.install-note{margin-top:18px; color:var(--mut2); font-size:13px; line-height:1.7}
+.install-note code{background:var(--code); padding:2px 6px; border-radius:5px; font-size:12px; overflow-wrap:anywhere}
+.install-note a{color:var(--mut); text-decoration:underline; text-underline-offset:3px; text-decoration-color:var(--n800)}
+.install-note a:hover{color:var(--cyan); text-decoration-color:var(--cyan-deep)}
+.phone-note{display:none; margin:22px auto 0; max-width:560px; padding:12px 16px; border-radius:12px; border:1px solid var(--cyan-deep);
+  background:var(--cyan-ink); color:var(--n300); font-size:14px; position:relative}
+.phone-note.show{display:block}
+@media(max-width:640px){.install-tabs{display:grid; grid-template-columns:1fr 1fr}.tab-btn{justify-content:center}.term{margin-top:20px}.cmdline{font-size:12px}}
+
+footer{border-top:1px solid var(--line); padding:36px 0; color:var(--mut2); font-size:13.5px}
+.foot{display:flex; gap:20px; align-items:center; flex-wrap:wrap}
+.foot nav{display:flex; margin-left:auto; gap:20px}
+@media(max-width:820px){.foot nav{display:flex; margin-left:0}}
+.foot a{text-decoration:none; color:var(--mut2); transition:color .2s}
+.foot a:hover{color:var(--tx)}
+.foot .nexus b{color:var(--tx); font-weight:600}
+
+/* reveal on scroll */
+.rv{opacity:0; transform:translateY(22px); transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+.rv.in{opacity:1; transform:none}
+
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important; transition-duration:.01ms!important}
+  .rv{opacity:1; transform:none}
+  .win{transform:none}
+  .peer{opacity:1}
+  .meter div{width:62%}
+}
+</style>
+</head>
+<body>
+<div class="glow" aria-hidden="true"></div>
+<div class="sonar" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="mesh" aria-hidden="true"></div>
+
+<header id="top">
+  <div class="wrap bar">
+    <a class="brand" href="#top" aria-label="Zippnd">
+      <svg viewBox="0 0 100 100" width="24" height="24" aria-hidden="true">
+        <path d="M22 34 H52 L22 66 H52 M66 30 A28 28 0 0 1 66 70" fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+      <span class="wordmark">zipp<span class="nd">ND</span></span>
+    </a>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#plans">Plans</a>
+      <a href="#download">Download</a>
+      <a href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases">Releases</a>
+    </nav>
+    <a class="btn primary sm" href="#download">Download</a>
+  </div>
+</header>
+
+<main>
+<!-- ── Hero ─────────────────────────────────────────────────────────── -->
+<div class="hero wrap">
+  <span class="badge"><b class="app-version">v0.1.0</b><span class="dot"></span> Desktop · macOS, Windows, Linux</span>
+  <h1>Send anything to<br>any device <em>nearby.</em></h1>
+  <p class="lede">
+    AirDrop for every platform. Mac to Windows, Linux to Android, iPhone to PC — straight across
+    your local network, end-to-end encrypted, and the person on the other side always says yes first.
+  </p>
+  <div class="cta">
+    <a class="btn primary" href="#download">Download Zippnd</a>
+    <a class="btn" href="#features">See what it does</a>
+  </div>
+  <p class="plat">Free · No account needed to share · Signed, self-updating builds</p>
+
+  <div class="stage" aria-hidden="true">
+    <div class="win">
+      <div class="titlebar"><div class="tl"><i></i><i></i><i></i></div><span>zippND</span></div>
+      <div class="body">
+        <aside class="side">
+          <div class="it on">Nearby</div>
+          <div class="it">Activity</div>
+          <div class="it">My devices</div>
+          <div class="it">Settings</div>
+          <div class="me">Sharing without<br>an account</div>
+        </aside>
+        <div class="main">
+          <div class="h">Nearby</div>
+          <div class="sub">Drop files anywhere, then pick who gets them</div>
+          <div class="radar">
+            <span class="ring"></span><span class="ring"></span><span class="ring"></span>
+            <div class="me-dot">
+              <svg viewBox="0 0 100 100" width="28" height="28"><path d="M22 34 H52 L22 66 H52 M66 30 A28 28 0 0 1 66 70" fill="none" stroke="#0a0a0a" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            </div>
+            <div class="peer hot" style="left:12%;top:2%;animation-delay:.6s"><b>PC</b>THINKPAD<i>Windows</i></div>
+            <div class="peer" style="right:12%;top:2%;animation-delay:.9s"><b>iP</b>Priya’s iPhone<i>iOS</i></div>
+            <div class="peer" style="right:17%;bottom:2%;animation-delay:1.2s"><b>PX</b>Pixel 9<i>Android</i></div>
+            <div class="peer" style="left:17%;bottom:2%;animation-delay:1.5s"><b>LX</b>studio-box<i>Linux</i></div>
+          </div>
+          <div class="xfer">
+            <div class="row"><span>Sending 3 files to <b>THINKPAD</b></span><span>Reel-final.mov · 2 of 3</span></div>
+            <div class="meter"><div></div></div>
+            <div class="row"><span style="color:var(--mut2)">End-to-end encrypted · verified as it lands</span><span>84 MB/s</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="strip" aria-hidden="true">
+  <div class="track">
+    <span>macOS</span><span>Windows</span><span>Linux</span><span>Android</span><span>iPhone</span><span>Noise XX</span><span>BLAKE3</span><span>mDNS</span><span>Resumable</span><span>No account</span><span>Peer-to-peer</span><span>Shared clipboard</span>
+    <span>macOS</span><span>Windows</span><span>Linux</span><span>Android</span><span>iPhone</span><span>Noise XX</span><span>BLAKE3</span><span>mDNS</span><span>Resumable</span><span>No account</span><span>Peer-to-peer</span><span>Shared clipboard</span>
+  </div>
+</div>
+
+<!-- ── Features ─────────────────────────────────────────────────────── -->
+<section id="features" class="wrap">
+  <div class="head rv">
+    <span class="eyebrow">Every platform, one protocol</span>
+    <h2>The share button your devices never agreed on.</h2>
+    <p>Every Zippnd app runs the same Rust transfer engine, so a Mac and an Android phone speak
+       exactly the same language — no cloud in the middle, no cable, no account.</p>
+  </div>
+  <div class="grid">
+    <div class="card rv"><h3><span class="ico">◎</span>Nearby, instantly</h3><p>Devices on your network appear on the radar by themselves. Pick one, drop files on the window, done.</p></div>
+    <div class="card rv"><h3><span class="ico">⚿</span>Encrypted end to end</h3><p>Every transfer runs over a Noise XX session, and both sides prove their device key before a byte moves.</p></div>
+    <div class="card rv"><h3><span class="ico">?</span>Always asked first</h3><p>The receiver sees who is sending and how much, can untick files, and decides the order they arrive in.</p></div>
+    <div class="card rv"><h3><span class="ico">↻</span>Picks up where it stopped</h3><p>Wi-Fi dropped mid-file? What arrived is kept, Zippnd reconnects, and Retry carries on from the last byte.</p></div>
+    <div class="card rv"><h3><span class="ico">✓</span>Verified on arrival</h3><p>Files stream in 64 KB frames, are checked with BLAKE3, and only get their name once they are whole.</p></div>
+    <div class="card rv"><h3><span class="ico">⇄</span>From Finder &amp; Explorer</h3><p>“Send with Zippnd” in the Services menu and the Send to menu, or drag straight onto the window.</p></div>
+    <div class="card rv"><h3><span class="ico">◐</span>Your call on visibility</h3><p>Everyone nearby, only Contacts you have shared with, or Off — gone from other screens within seconds.</p></div>
+    <div class="card rv"><h3><span class="ico">∞</span>Your own ecosystem</h3><p>Pair your devices once with a six-digit code. On Ecosystem they send with no prompt and share a clipboard.</p></div>
+    <div class="card rv"><h3><span class="ico">∅</span>No account to share</h3><p>Install and send. A CyKrome account is only for Pro, Ecosystem and pairing your own devices.</p></div>
+  </div>
+</section>
+
+<!-- ── How it works ─────────────────────────────────────────────────── -->
+<section id="how" class="wrap">
+  <div class="split">
+    <div class="rv">
+      <span class="eyebrow">Peer to peer</span>
+      <h2 style="font-size:clamp(28px,4.4vw,44px);margin-top:14px">Straight from one device to the other.</h2>
+      <p style="color:var(--mut);margin-top:16px;font-size:17px">
+        Your files never touch a server. Zippnd finds devices on the local network, opens an
+        encrypted session directly between the two, and moves the bytes as fast as the network allows.
+      </p>
+      <ul class="bullets">
+        <li><span class="tick">✓</span><span><b>Discovery over mDNS.</b> Every device advertises <code>_zippnd._tcp</code> on the local network.</span></li>
+        <li><span class="tick">✓</span><span><b>Mutually authenticated.</b> Noise XX, so both ends know exactly whose device they are talking to.</span></li>
+        <li><span class="tick">✓</span><span><b>Live progress on both sides.</b> File <em>n</em> of <em>N</em>, speed, time left, and a speed graph in Details.</span></li>
+        <li><span class="tick">✓</span><span><b>Stays reachable.</b> Close the window and Zippnd keeps listening from the tray, if you want it to.</span></li>
+      </ul>
+    </div>
+    <div class="flow rv" aria-hidden="true">
+      <div class="row"><span class="node">Your Mac</span><span class="wire"></span><span class="node hot">mDNS · _zippnd._tcp</span></div>
+      <div class="row"><span class="node hot">Noise XX handshake</span><span class="wire back"></span><span class="node">THINKPAD</span></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <span class="node">64 KB frames</span><span class="node">BLAKE3</span><span class="node">resume</span><span class="node">reorder</span>
+      </div>
+      <p class="note">// one Rust engine on every platform · no relay · no cloud copy</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Plans ────────────────────────────────────────────────────────── -->
+<section id="plans" class="wrap">
+  <div class="head rv">
+    <span class="eyebrow">Plans</span>
+    <h2>Free to share. Faster with Pro.</h2>
+    <p>Free works signed out and resets every day. Plans belong to your CyKrome account, so they
+       follow you to every device.</p>
+  </div>
+  <div class="plans rv">
+    <div class="plan"><span class="tag">Free</span><b>Free</b>
+      <ul><li>10 GB of sharing a day</li><li>Up to 25 MB/s</li><li>No account needed</li></ul></div>
+    <div class="plan"><span class="tag">Pro</span><b>Pro</b>
+      <ul><li>Unlimited sharing</li><li>Full network speed</li><li>On every device you sign in to</li></ul></div>
+    <div class="plan hot"><span class="tag">Ecosystem</span><b>Ecosystem</b>
+      <ul><li>Everything in Pro</li><li>Your devices skip the prompt</li><li>Shared clipboard</li></ul></div>
+  </div>
+  <p class="plans-note rv">Upgrade from <em>Settings → Account</em> in the app, or <a href="https://nexus.cykrome.com/zippnd/pro/">see plans and prices</a>.</p>
+</section>
+
+<!-- ── Download ─────────────────────────────────────────────────────── -->
+<section id="download" class="wrap">
+  <div class="dl rv">
+    <span class="eyebrow">Get it</span>
+    <h2 style="margin-top:14px">Download Zippnd</h2>
+    <p>Run one command in your terminal to install Zippnd on macOS or Linux,
+       or download the Windows installer directly from the latest release.</p>
+
+    <p class="phone-note" id="phone-note">These are the desktop builds. Zippnd for iPhone and Android isn’t in stores yet — open this page on your computer to install it there.</p>
+
+    <div class="install-tabs" role="tablist" aria-label="Download platform">
+      <button type="button" class="tab-btn active" data-tab="mac" role="tab" aria-selected="true">macOS</button>
+      <button type="button" class="tab-btn" data-tab="linux" role="tab" aria-selected="false">Linux</button>
+      <button type="button" class="tab-btn" data-tab="win" role="tab" aria-selected="false">Windows</button>
+      <button type="button" class="tab-btn" data-tab="all" role="tab" aria-selected="false">All Downloads</button>
+    </div>
+
+    <div class="tab-panel active" id="panel-mac" role="tabpanel">
+      <div class="term">
+        <div class="termbar">
+          <i></i><i></i><i></i><span>bash</span>
+          <button class="copy" type="button" data-copy="mac-cmd">Copy</button>
+        </div>
+        <code class="cmdline" id="mac-cmd"><span class="sh">curl</span> -fsSL <span class="u">https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest/download/install-mac.sh</span> <span class="op">|</span> <span class="sh">bash</span></code>
+      </div>
+      <div class="install-perks">
+        <span class="install-perk"><span class="tick">✓</span> Installs into <b>/Applications</b></span>
+        <span class="install-perk"><span class="tick">✓</span> Auto-removes Gatekeeper quarantine</span>
+        <span class="install-perk"><span class="tick">✓</span> Apple Silicon &amp; Intel native</span>
+      </div>
+      <p class="install-note">This path is preferred until Apple Developer ID signing is configured, because it also clears the macOS quarantine attribute after install. Allow <b>Local Network</b> access when asked — that is how Zippnd finds devices nearby.</p>
+    </div>
+
+    <div class="tab-panel" id="panel-linux" role="tabpanel">
+      <div class="term">
+        <div class="termbar">
+          <i></i><i></i><i></i><span>bash</span>
+          <button class="copy" type="button" data-copy="linux-cmd">Copy</button>
+        </div>
+        <code class="cmdline" id="linux-cmd"><span class="sh">curl</span> -fsSL <span class="u">https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest/download/install-linux.sh</span> <span class="op">|</span> <span class="sh">bash</span></code>
+      </div>
+      <div class="install-perks">
+        <span class="install-perk"><span class="tick">✓</span> Installs AppImage to <b>~/.local/share</b></span>
+        <span class="install-perk"><span class="tick">✓</span> Desktop menu integration</span>
+        <span class="install-perk"><span class="tick">✓</span> Adds <b>zippnd</b> command</span>
+      </div>
+      <p class="install-note">This path is preferred because it installs the AppImage, menu entry, and terminal command together, and the AppImage updates itself.</p>
+    </div>
+
+    <div class="tab-panel" id="panel-win" role="tabpanel">
+      <div class="dl-actions">
+        <a class="btn primary big" id="dl-main" data-dl="win" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest" download>
+          <span id="dl-main-label">Download for Windows</span>
+        </a>
+        <a class="btn big" data-dl="win-msi" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest" download>Windows .msi</a>
+      </div>
+      <div class="install-perks">
+        <span class="install-perk"><span class="tick">✓</span> Windows 10 / 11 64-bit</span>
+        <span class="install-perk"><span class="tick">✓</span> “Send with Zippnd” in Explorer</span>
+        <span class="install-perk"><span class="tick">✓</span> Signed update feed</span>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-all" role="tabpanel">
+      <div class="plats">
+        <a data-dl="install" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest/download/install.sh" download><b>Universal Installer</b><i>install.sh</i></a>
+        <a data-dl="install-mac" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest/download/install-mac.sh" download><b>macOS Installer</b><i>install-mac.sh</i></a>
+        <a data-dl="install-linux" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest/download/install-linux.sh" download><b>Linux Installer</b><i>install-linux.sh</i></a>
+        <a data-dl="win" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest" download><b>Windows</b><i>.exe installer</i></a>
+        <a data-dl="win-msi" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest" download><b>Windows Package</b><i>.msi</i></a>
+      </div>
+      <p class="install-note">
+        Universal auto-detect install script:
+        <code>curl -fsSL https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest/download/install.sh | bash</code>
+        <br><br>
+        <a href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest">View the full release on GitHub</a> for the .dmg, .deb and .rpm.
+      </p>
+    </div>
+    <p class="dl-meta" id="dl-meta"><span class="app-version">v0.1.0</span> · macOS, Windows and Linux builds</p>
+    <p class="fineprint">
+      Updates are verified by the installed app before they apply. macOS builds are not notarised yet, so the terminal installer is the preferred path.
+    </p>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <a class="brand" href="#top" style="font-size:15px" aria-label="Zippnd">
+      <svg viewBox="0 0 100 100" width="18" height="18" aria-hidden="true">
+        <path d="M22 34 H52 L22 66 H52 M66 30 A28 28 0 0 1 66 70" fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+      <span class="wordmark">zipp<span class="nd">ND</span></span>
+    </a>
+    <span class="nexus">© <span id="yr">2026</span> · A <b>CyKrome Nexus</b> app</span>
+    <nav>
+      <a href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases">Releases</a>
+      <a href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest">Latest</a>
+      <a href="https://cykrome.com/privacy">Privacy</a>
+      <a href="mailto:support@cykrome.com">Support</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+document.getElementById("yr").textContent = new Date().getFullYear();
+
+// ── Single Source of Truth for App Version ──────────────────────────────
+// Default/fallback version in static HTML. Automatically synchronized across all elements
+// with class "app-version", and refreshed live whenever GitHub Releases API responds.
+const APP_VERSION = "v0.1.0";
+
+function syncVersion(ver) {
+  if (!ver) return;
+  const cleanVer = ver.startsWith("v") ? ver : `v${ver}`;
+  document.querySelectorAll(".app-version").forEach((el) => {
+    el.textContent = cleanVer;
+  });
+}
+syncVersion(APP_VERSION);
+
+// Scroll reveals: one observer, unobserve once shown.
+const io = new IntersectionObserver((es) => {
+  for (const e of es) if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+}, { rootMargin: "0px 0px -12% 0px" });
+document.querySelectorAll(".rv").forEach((el, i) => { el.style.transitionDelay = `${(i % 3) * 70}ms`; io.observe(el); });
+
+// Header hairline once the hero scrolls under it.
+const hdr = document.querySelector("header");
+addEventListener("scroll", () => hdr.classList.toggle("stuck", scrollY > 12), { passive: true });
+
+/* Point every download at the exact file in the latest release, so nobody lands
+   on a page of twenty assets. If the API is unreachable the hrefs stay on the
+   releases page, which is the honest fallback. */
+const REPO = "CyKrome-Nexus/Zippnd-Release";
+const ASSETS = {
+  "install": [/^install\.sh$/i, "Universal installer"],
+  "install-mac": [/install-mac\.sh$/i, "macOS installer"],
+  "install-linux": [/install-linux\.sh$/i, "Linux installer"],
+  "mac-arm": [/_aarch64\.dmg$/, "macOS (Apple Silicon)"],
+  "mac-x64": [/_x64\.dmg$/, "macOS (Intel)"],
+  "win": [/x64-setup\.exe$/, "Windows"],
+  "win-msi": [/x64_en-US\.msi$/, "Windows (.msi)"],
+  "linux": [/\.AppImage$/, "Linux"],
+  "deb": [/\.deb$/, "Linux (.deb)"],
+  "rpm": [/\.rpm$/, "Linux (.rpm)"],
+};
+
+function detectPlatform() {
+  const ua = navigator.userAgent;
+  if (/Android|iPhone|iPod/.test(ua)) return "phone";     // no phone build here yet
+  if (/Windows|Win64|WOW64/.test(ua)) return "win";
+  if (/Mac|iPad/.test(ua)) return navigator.maxTouchPoints > 1 ? "phone" : isAppleSilicon() ? "mac-arm" : "mac-x64";
+  if (/Linux|X11/.test(ua)) return "linux";
+  return null;
+}
+
+// The UA never says arm64 on a Mac; the GPU string does.
+function isAppleSilicon() {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl");
+    const dbg = gl && gl.getExtension("WEBGL_debug_renderer_info");
+    const r = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : "";
+    return /Apple\s*(M\d|GPU)/i.test(r);
+  } catch { return false; }
+}
+
+const mb = (b) => `${(b / 1048576).toFixed(1)} MB`;
+
+/* The API allows 60 unauthenticated calls an hour per IP, so a release is worth
+   remembering for a few hours: a repeat visitor gets the links painted before the
+   network answers, and a rate-limited one still gets real filenames. */
+const CACHE_KEY = "zippnd.latest";
+const CACHE_TTL = 6 * 3600 * 1000;
+
+const readCache = () => {
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+    return c && Array.isArray(c.files) ? c : null;
+  } catch { return null; }                                 // private mode, blocked storage
+};
+const writeCache = (rel) => {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(rel)); } catch { /* quota, ignore */ }
+};
+
+const toRelease = (json) => ({
+  at: Date.now(),
+  ver: json.tag_name || "",
+  files: (json.assets || [])
+    .filter((a) => !a.name.endsWith(".sig"))
+    .map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size })),
+});
+
+function selectTab(tab) {
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    const active = btn.dataset.tab === tab;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  document.querySelectorAll(".tab-panel").forEach((panel) => {
+    panel.classList.toggle("active", panel.id === `panel-${tab}`);
+  });
+}
+
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => selectTab(btn.dataset.tab));
+});
+
+(async () => {
+  const main = document.getElementById("dl-main");
+  const label = document.getElementById("dl-main-label");
+  const meta = document.getElementById("dl-meta");
+  const here = detectPlatform();
+
+  if (here === "phone") { document.getElementById("phone-note").classList.add("show"); selectTab("all"); }
+  else if (here && here.startsWith("mac")) selectTab("mac");
+  else if (here === "linux") selectTab("linux");
+  else if (here === "win") selectTab("win");
+
+  const apply = (rel) => {
+    if (rel && rel.ver) {
+      syncVersion(rel.ver);
+    }
+    const pick = (key) => rel.files.find((f) => ASSETS[key][0].test(f.name));
+    const primaryKey = here && here.startsWith("mac") ? "install-mac" : here === "linux" ? "install-linux" : here === "win" ? "win" : null;
+    for (const el of document.querySelectorAll("[data-dl]")) {
+      const f = pick(el.dataset.dl);
+      if (!f) continue;
+      el.href = f.url;
+      const size = el.querySelector("i");
+      if (size) size.textContent = `${f.name} · ${mb(f.size)}`;
+      else el.title = `${f.name} · ${mb(f.size)}`;
+    }
+    const mine = primaryKey && pick(primaryKey);
+    const verDisplay = rel?.ver || APP_VERSION;
+    if (mine) {
+      if (main && primaryKey === "win") main.href = mine.url;
+      if (label && primaryKey === "win") label.textContent = `Download for ${ASSETS.win[1]}`;
+      meta.innerHTML = `<span class="app-version">${verDisplay}</span> · ${mine.name} · ${mb(mine.size)}`;
+    } else {
+      meta.innerHTML = `<span class="app-version">${verDisplay}</span> · macOS, Windows and Linux builds`;
+    }
+  };
+
+  const cached = readCache();
+  if (cached) {
+    if (cached.ver) syncVersion(cached.ver);
+    apply(cached);                               // paint first, verify after
+  }
+  if (cached && Date.now() - cached.at < CACHE_TTL) return;
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!res.ok) throw new Error(res.status);
+    const rel = toRelease(await res.json());
+    if (!rel.files.length) throw new Error("no assets");
+    writeCache(rel);
+    apply(rel);
+  } catch {
+    if (!cached) meta.innerHTML = `<span class="app-version">${APP_VERSION}</span> · Latest release · pick your file on GitHub`;
+  }
+})();
+
+document.querySelectorAll("[data-copy]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const el = document.getElementById(btn.dataset.copy);
+    const text = el.textContent.trim();
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = "Copied!";
+      btn.classList.add("ok");
+      setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("ok"); }, 2000);
+    } catch {
+      btn.textContent = "Select";
+      setTimeout(() => { btn.textContent = "Copy"; }, 2000);
+    }
+  });
+});
+
+// Cursor spotlight on the feature cards.
+for (const c of document.querySelectorAll(".card")) {
+  c.addEventListener("pointermove", (e) => {
+    const r = c.getBoundingClientRect();
+    c.style.setProperty("--mx", `${e.clientX - r.left}px`);
+    c.style.setProperty("--my", `${e.clientY - r.top}px`);
+  });
+}
+</script>
+</body>
+</html>
