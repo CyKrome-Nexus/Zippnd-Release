@@ -37,6 +37,7 @@ Grab the latest build from the [**Releases**](../../releases/latest) page.
 | macOS (Intel) | `Zippnd_<version>_x64.dmg` or `Zippnd_x86_64.app.tar.gz` |
 | Windows | `Zippnd_<version>_x64_en-US.msi` or `Zippnd_<version>_x64-setup.exe` |
 | Linux | `Zippnd_<version>_amd64.AppImage`, `Zippnd_<version>_amd64.deb`, or `Zippnd-<version>-1.x86_64.rpm` |
+| Android (arm64) | `Zippnd_<version>_android-arm64.apk` |
 
 ## Updates
 
@@ -48,6 +49,8 @@ Every update is cryptographically signed, and Zippnd verifies that signature bef
 installing anything. An update that has been tampered with in transit is rejected.
 
 In-app updating covers the macOS app, the Windows installers and the Linux `.AppImage`.
+On Android, install a newer `.apk` over the old one: every APK is signed with the same
+CyKrome key, so Android keeps your devices and history.
 The `.deb` and `.rpm` packages are owned by your system package manager, so those
 installs do not self-update — grab a newer package when you want to move up.
 
@@ -63,15 +66,14 @@ from update signing above, which is always on.) The terminal installer avoids it
   asked — that is how Zippnd finds devices nearby.
 - **Windows:** *More info* → *Run anyway*. Allow Zippnd through the firewall on private networks.
 - **Linux (AppImage):** `chmod +x Zippnd_*.AppImage && ./Zippnd_*.AppImage`
+- **Android:** open the `.apk`. The first time, Android asks to allow installing apps from
+  your browser or file manager; allow it, then tap *Install*.
 
 ## Updating this page
 
-The landing page is `index.html` (GitHub Pages, `main` / root). It reads the newest
-release from the GitHub API; the version baked into the HTML is only the fallback.
-After a release:
-
-```bash
-node scripts/update-version.mjs 0.2.0
-```
+The landing page is `index.html` (GitHub Pages, `main` / root). It has no version
+written into it: every visit reads the latest release from the GitHub API and shows
+the desktop version from its tag and the Android version from the `.apk` name, with
+links to the exact files. Nothing here needs changing after a release.
 
 Releases are published automatically by CI from the private source repository.
