@@ -337,7 +337,7 @@ footer{border-top:1px solid var(--line); padding:36px 0; color:var(--mut2); font
 <main>
 <!-- ── Hero ─────────────────────────────────────────────────────────── -->
 <div class="hero wrap">
-  <span class="badge"><b class="app-version">v0.1.0</b><span class="dot"></span> Desktop · macOS, Windows, Linux</span>
+  <span class="badge"><b data-ver="desktop">Latest</b><span class="dot"></span> Desktop · macOS, Windows, Linux</span>
   <h1>Send anything to<br>any device <em>nearby.</em></h1>
   <p class="lede">
     AirDrop for every platform. Mac to Windows, Linux to Android, iPhone to PC — straight across
@@ -512,7 +512,7 @@ footer{border-top:1px solid var(--line); padding:36px 0; color:var(--mut2); font
     <div class="tab-panel" id="panel-win" role="tabpanel">
       <div class="dl-actions">
         <a class="btn primary big" id="dl-main" data-dl="win" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest" download>
-          <span id="dl-main-label">Download for Windows</span>
+          Download for Windows
         </a>
         <a class="btn big" data-dl="win-msi" href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest" download>Windows .msi</a>
       </div>
@@ -551,7 +551,7 @@ footer{border-top:1px solid var(--line); padding:36px 0; color:var(--mut2); font
         <a href="https://github.com/CyKrome-Nexus/Zippnd-Release/releases/latest">View the full release on GitHub</a> for the .dmg, .deb and .rpm.
       </p>
     </div>
-    <p class="dl-meta" id="dl-meta"><span class="app-version">v0.1.0</span> · macOS, Windows, Linux and Android builds</p>
+    <p class="dl-meta" id="dl-meta">Latest release · macOS, Windows, Linux and Android builds</p>
     <p class="fineprint">
       Updates are verified by the installed app before they apply. macOS builds are not notarised yet, so the terminal installer is the preferred path.
     </p>
@@ -579,20 +579,6 @@ footer{border-top:1px solid var(--line); padding:36px 0; color:var(--mut2); font
 
 <script>
 document.getElementById("yr").textContent = new Date().getFullYear();
-
-// ── Single Source of Truth for App Version ──────────────────────────────
-// Default/fallback version in static HTML. Automatically synchronized across all elements
-// with class "app-version", and refreshed live whenever GitHub Releases API responds.
-const APP_VERSION = "v0.1.0";
-
-function syncVersion(ver) {
-  if (!ver) return;
-  const cleanVer = ver.startsWith("v") ? ver : `v${ver}`;
-  document.querySelectorAll(".app-version").forEach((el) => {
-    el.textContent = cleanVer;
-  });
-}
-syncVersion(APP_VERSION);
 
 // Scroll reveals: one observer, unobserve once shown.
 const io = new IntersectionObserver((es) => {
@@ -644,11 +630,12 @@ function isAppleSilicon() {
 
 const mb = (b) => `${(b / 1048576).toFixed(1)} MB`;
 
-/* The API allows 60 unauthenticated calls an hour per IP, so a release is worth
-   remembering for a few hours: a repeat visitor gets the links painted before the
-   network answers, and a rate-limited one still gets real filenames. */
+/* The latest GitHub release is the only source of the version shown here: the
+   desktop version is its tag, the Android version is in the APK's name (the phone
+   app is versioned on its own). The last answer is remembered only to paint a
+   repeat visit before the network answers, and for a visitor the API is
+   rate-limiting (60 calls an hour per IP); every visit still asks for the latest. */
 const CACHE_KEY = "zippnd.latest";
-const CACHE_TTL = 6 * 3600 * 1000;
 
 const readCache = () => {
   try {
@@ -660,13 +647,36 @@ const writeCache = (rel) => {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(rel)); } catch { /* quota, ignore */ }
 };
 
-const toRelease = (json) => ({
-  at: Date.now(),
-  ver: json.tag_name || "",
-  files: (json.assets || [])
+const vtag = (v) => (v ? (v.startsWith("v") ? v : `v${v}`) : "");
+
+const toRelease = (json) => {
+  const files = (json.assets || [])
     .filter((a) => !a.name.endsWith(".sig"))
-    .map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size })),
-});
+    .map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size }));
+  const apk = files.find((f) => ASSETS.android[0].test(f.name));
+  return {
+    desktop: vtag(json.tag_name || ""),
+    android: vtag((apk && apk.name.match(/_(\d+\.\d+\.\d+(?:-[\w.]+)?)_android/) || [])[1]),
+    files,
+  };
+};
+
+const here = detectPlatform();
+const meta = document.getElementById("dl-meta");
+let release = null;
+
+// The line under the tabs describes the selected tab's file, with its own version.
+function renderMeta(tab) {
+  if (!release) return;
+  const pick = (key) => release.files.find((f) => ASSETS[key][0].test(f.name));
+  const key = tab === "mac" ? (here === "mac-x64" ? "mac-x64" : "mac-arm")
+    : tab === "linux" ? "linux" : tab === "win" ? "win" : tab === "android" ? "android" : null;
+  const f = key && pick(key);
+  const ver = key === "android" ? release.android : release.desktop;
+  if (f && ver) meta.textContent = `${ver} · ${f.name} · ${mb(f.size)}`;
+  else meta.textContent = [release.desktop && `Desktop ${release.desktop}`, release.android && `Android ${release.android}`]
+    .filter(Boolean).join(" · ") || "Latest release";
+}
 
 function selectTab(tab) {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -677,6 +687,7 @@ function selectTab(tab) {
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     panel.classList.toggle("active", panel.id === `panel-${tab}`);
   });
+  renderMeta(tab);
 }
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -684,11 +695,6 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 });
 
 (async () => {
-  const main = document.getElementById("dl-main");
-  const label = document.getElementById("dl-main-label");
-  const meta = document.getElementById("dl-meta");
-  const here = detectPlatform();
-
   if (here === "phone") { document.getElementById("phone-note").classList.add("show"); selectTab("all"); }
   else if (here && here.startsWith("mac")) selectTab("mac");
   else if (here === "linux") selectTab("linux");
@@ -696,40 +702,28 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
   else if (here === "android") selectTab("android");
 
   const apply = (rel) => {
-    if (rel && rel.ver) {
-      syncVersion(rel.ver);
+    release = rel;
+    for (const el of document.querySelectorAll("[data-ver]")) {
+      if (rel[el.dataset.ver]) el.textContent = rel[el.dataset.ver];
     }
-    const pick = (key) => rel.files.find((f) => ASSETS[key][0].test(f.name));
-    const primaryKey = here && here.startsWith("mac") ? "install-mac" : here === "linux" ? "install-linux" : here === "win" ? "win" : here === "android" ? "android" : null;
     for (const el of document.querySelectorAll("[data-dl]")) {
-      const f = pick(el.dataset.dl);
+      const f = rel.files.find((x) => ASSETS[el.dataset.dl][0].test(x.name));
       if (!f) continue;
       el.href = f.url;
       const size = el.querySelector("i");
       if (size) size.textContent = `${f.name} · ${mb(f.size)}`;
       else el.title = `${f.name} · ${mb(f.size)}`;
     }
-    const mine = primaryKey && pick(primaryKey);
-    const verDisplay = rel?.ver || APP_VERSION;
-    if (mine) {
-      if (main && primaryKey === "win") main.href = mine.url;
-      if (label && primaryKey === "win") label.textContent = `Download for ${ASSETS.win[1]}`;
-      meta.innerHTML = `<span class="app-version">${verDisplay}</span> · ${mine.name} · ${mb(mine.size)}`;
-    } else {
-      meta.innerHTML = `<span class="app-version">${verDisplay}</span> · macOS, Windows, Linux and Android builds`;
-    }
+    renderMeta(document.querySelector(".tab-btn.active")?.dataset.tab);
   };
 
   const cached = readCache();
-  if (cached) {
-    if (cached.ver) syncVersion(cached.ver);
-    apply(cached);                               // paint first, verify after
-  }
-  if (cached && Date.now() - cached.at < CACHE_TTL) return;
+  if (cached && cached.desktop) apply(cached);   // paint first, then ask for the latest
 
   try {
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
       headers: { Accept: "application/vnd.github+json" },
+      cache: "no-cache",
     });
     if (!res.ok) throw new Error(res.status);
     const rel = toRelease(await res.json());
@@ -737,7 +731,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     writeCache(rel);
     apply(rel);
   } catch {
-    if (!cached) meta.innerHTML = `<span class="app-version">${APP_VERSION}</span> · Latest release · pick your file on GitHub`;
+    if (!release) meta.textContent = "Latest release · pick your file on GitHub";
   }
 })();
 

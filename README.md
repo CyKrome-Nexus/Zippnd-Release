@@ -71,12 +71,9 @@ from update signing above, which is always on.) The terminal installer avoids it
 
 ## Updating this page
 
-The landing page is `index.html` (GitHub Pages, `main` / root). It reads the newest
-release from the GitHub API; the version baked into the HTML is only the fallback.
-After a release:
-
-```bash
-node scripts/update-version.mjs 0.2.0
-```
+The landing page is `index.html` (GitHub Pages, `main` / root). It has no version
+written into it: every visit reads the latest release from the GitHub API and shows
+the desktop version from its tag and the Android version from the `.apk` name, with
+links to the exact files. Nothing here needs changing after a release.
 
 Releases are published automatically by CI from the private source repository.
